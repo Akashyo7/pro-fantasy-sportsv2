@@ -1,5 +1,4 @@
 # Render Blueprint Configuration
-# Repository configuration
 repo: https://github.com/Akashyo7/pro-fantasy-sportsv2
 
 services:
@@ -15,7 +14,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.9.18
       - key: FOOTBALL_DATA_API_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: API_HOST
         value: 0.0.0.0
       - key: API_PORT
@@ -27,19 +26,17 @@ services:
       - key: MAX_PREDICTIONS_PER_DAY
         value: "100"
       - key: SUPABASE_URL
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_SERVICE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
     
-    # Disk storage for model files
     disk:
       name: model-storage
       mountPath: /opt/render/project/src/data
       sizeGB: 1
     
-    # Auto-deploy from main branch
     autoDeploy: true
     
   # Streamlit Frontend Service  
@@ -55,7 +52,7 @@ services:
       - key: API_HOST
         value: https://football-predictions-api.onrender.com
       - key: API_PORT
-        value: "443"  # HTTPS port for external service calls
+        value: "443"
       - key: STREAMLIT_SERVER_PORT
         value: $PORT
       - key: STREAMLIT_SERVER_HEADLESS
@@ -65,22 +62,20 @@ services:
       - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
         value: "false"
       - key: SUPABASE_URL
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_SERVICE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
     
-    # Auto-deploy from main branch
     autoDeploy: true
 
-# Background Jobs (Cron Jobs)
 jobs:
   # Weekly model training job
   - type: cron
     name: weekly-model-training
     env: python
-    schedule: "0 2 * * 0"  # Every Sunday at 2 AM UTC
+    schedule: "0 2 * * 0"
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/train_models.py
     envVars:
@@ -91,23 +86,21 @@ jobs:
       - key: MODEL_TRAINING_MODE
         value: "scheduled"
       - key: NOTIFICATION_WEBHOOK
-        sync: false  # Optional: for training completion notifications
+        sync: false
       - key: SUPABASE_URL
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
       - key: SUPABASE_SERVICE_KEY
-        sync: false  # Set this in Render dashboard
+        sync: false
     
-    # Use the same disk as the API service
     disk:
       name: model-storage
       mountPath: /opt/render/project/src/data
       sizeGB: 1
 
-# Database (if needed for caching)
 databases:
   - name: predictions-cache
     databaseName: football_predictions
     user: predictions_user
-    plan: free  # PostgreSQL free tier
+    plan: free
