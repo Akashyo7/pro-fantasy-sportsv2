@@ -1,0 +1,121 @@
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: football-predictions-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false  # Set this in Render dashboard
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        fromService:
+          type: web
+          name: football-predictions-api
+          property: port
+      - key: MODEL_UPDATE_FREQUENCY
+        value: weekly
+      - key: CONFIDENCE_THRESHOLD
+        value: "0.6"
+      - key: MAX_PREDICTIONS_PER_DAY
+        value: "100"
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_KEY
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false  # Set this in Render dashboard
+    
+    # Disk storage for model files
+    disk:
+      name: model-storage
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    
+    # Auto-deploy from main branch
+    autoDeploy: true
+    
+    # Health check configuration
+    healthCheckPath: /health
+    
+  # Streamlit Frontend Service  
+  - type: web
+    name: football-predictions-dashboard
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run src/frontend/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: API_HOST
+        fromService:
+          type: web
+          name: football-predictions-api
+          property: host
+      - key: API_PORT
+        value: "80"  # Render uses port 80 for web services
+      - key: STREAMLIT_SERVER_PORT
+        fromService:
+          type: web
+          name: football-predictions-dashboard
+          property: port
+      - key: STREAMLIT_SERVER_HEADLESS
+        value: "true"
+      - key: STREAMLIT_SERVER_ENABLE_CORS
+        value: "false"
+      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+        value: "false"
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_KEY
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false  # Set this in Render dashboard
+    
+    # Auto-deploy from main branch
+    autoDeploy: true
+
+# Background Jobs (Cron Jobs)
+jobs:
+  # Weekly model training job
+  - type: cron
+    name: weekly-model-training
+    env: python
+    schedule: "0 2 * * 0"  # Every Sunday at 2 AM UTC
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/train_models.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.18
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false
+      - key: MODEL_TRAINING_MODE
+        value: "scheduled"
+      - key: NOTIFICATION_WEBHOOK
+        sync: false  # Optional: for training completion notifications
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_KEY
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false  # Set this in Render dashboard
+    
+    # Use the same disk as the API service
+    disk:
+      name: model-storage
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+
+# Database (if needed for caching)
+databases:
+  - name: predictions-cache
+    databaseName: football_predictions
+    user: predictions_user
+    plan: free  # PostgreSQL free tier

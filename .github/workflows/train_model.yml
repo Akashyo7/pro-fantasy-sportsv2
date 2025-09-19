@@ -1,0 +1,216 @@
+name: Automated Model Training
+
+on:
+  schedule:
+    # Run every Sunday at 2 AM UTC (weekly training)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      force_retrain:
+        description: 'Force complete retraining'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.9'
+  
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create data directories
+      run: |
+        mkdir -p data/raw data/processed data/models
+        
+    - name: Set up environment variables
+      run: |
+        echo "FOOTBALL_DATA_API_KEY=${{ secrets.FOOTBALL_DATA_API_KEY }}" >> $GITHUB_ENV
+        echo "MODEL_VERSION=$(date +%Y%m%d_%H%M%S)" >> $GITHUB_ENV
+        
+    - name: Collect training data
+      run: |
+        python -c "
+        from src.data.collector import FootballDataCollector
+        from src.data.processor import MatchDataProcessor
+        from src.features.engineer import AdvancedFeatureEngineer
+        import os
+        
+        print('Starting data collection...')
+        collector = FootballDataCollector()
+        
+        # Collect historical data for all competitions
+        historical_data = collector.collect_historical_data()
+        if not historical_data.empty:
+            collector.save_data(historical_data, 'historical_matches.csv')
+            print(f'Collected {len(historical_data)} historical matches')
+        else:
+            print('No historical data collected')
+            exit(1)
+        
+        # Process the data
+        print('Processing data...')
+        processor = MatchDataProcessor()
+        processor.process_and_save('historical_matches.csv', 'processed_matches.csv')
+        
+        # Engineer features
+        print('Engineering features...')
+        engineer = AdvancedFeatureEngineer()
+        engineer.engineer_all_features()
+        
+        print('Data preparation completed successfully')
+        "
+        
+    - name: Train models
+      run: |
+        python -c "
+        from src.models.predictor import FootballPredictor
+        import os
+        
+        print('Starting model training...')
+        predictor = FootballPredictor()
+        
+        # Train all models
+        predictor.train_models()
+        
+        # Save models with version
+        model_version = os.getenv('MODEL_VERSION')
+        predictor.save_models(version=model_version)
+        
+        # Get performance metrics
+        performance = predictor.get_model_performance()
+        print('Training completed successfully')
+        print('Performance metrics:', performance)
+        
+        # Save performance to file for artifact
+        import json
+        with open('model_performance.json', 'w') as f:
+            json.dump({
+                'version': model_version,
+                'performance': performance,
+                'training_date': '$(date -u +%Y-%m-%dT%H:%M:%SZ)'
+            }, f, indent=2)
+        "
+        
+    - name: Validate model performance
+      run: |
+        python -c "
+        import json
+        import sys
+        
+        # Load performance metrics
+        with open('model_performance.json', 'r') as f:
+            metrics = json.load(f)
+        
+        performance = metrics['performance']
+        
+        # Define minimum performance thresholds
+        min_accuracy = 0.45  # Minimum 45% accuracy for result prediction
+        min_confidence_corr = 0.3  # Minimum correlation for confidence scores
+        max_goals_mae = 2.0  # Maximum MAE for goals prediction
+        
+        # Check performance
+        result_accuracy = performance.get('result_accuracy', 0)
+        confidence_corr = performance.get('confidence_correlation', 0)
+        goals_mae = performance.get('goals_mae', float('inf'))
+        
+        print(f'Result accuracy: {result_accuracy:.3f} (min: {min_accuracy})')
+        print(f'Confidence correlation: {confidence_corr:.3f} (min: {min_confidence_corr})')
+        print(f'Goals MAE: {goals_mae:.3f} (max: {max_goals_mae})')
+        
+        # Validate performance
+        if result_accuracy < min_accuracy:
+            print(f'ERROR: Result accuracy {result_accuracy:.3f} below threshold {min_accuracy}')
+            sys.exit(1)
+            
+        if confidence_corr < min_confidence_corr:
+            print(f'ERROR: Confidence correlation {confidence_corr:.3f} below threshold {min_confidence_corr}')
+            sys.exit(1)
+            
+        if goals_mae > max_goals_mae:
+            print(f'ERROR: Goals MAE {goals_mae:.3f} above threshold {max_goals_mae}')
+            sys.exit(1)
+            
+        print('All performance checks passed!')
+        "
+        
+    - name: Upload model artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: trained-models-${{ env.MODEL_VERSION }}
+        path: |
+          data/models/
+          model_performance.json
+        retention-days: 30
+        
+    - name: Create model release
+      if: github.event_name == 'schedule' || github.event.inputs.force_retrain == 'true'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: model-v${{ env.MODEL_VERSION }}
+        release_name: Model Release v${{ env.MODEL_VERSION }}
+        body: |
+          Automated model training completed successfully.
+          
+          **Training Date:** ${{ env.MODEL_VERSION }}
+          
+          **Performance Metrics:**
+          - Check the uploaded artifacts for detailed performance metrics
+          
+          **Changes:**
+          - Updated with latest match data
+          - Retrained all prediction models
+          - Validated performance thresholds
+        draft: false
+        prerelease: false
+        
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "Model training failed. Check the logs for details."
+        # In a real setup, you might want to send notifications via Slack, email, etc.
+        
+  deploy-to-render:
+    needs: train-model
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+    - name: Trigger Render deployment
+      run: |
+        # This would trigger a deployment to Render
+        # You would need to set up Render deploy hooks
+        echo "Triggering Render deployment..."
+        
+        # Example webhook call (replace with actual Render webhook)
+        # curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+        
+    - name: Health check after deployment
+      run: |
+        echo "Performing health check..."
+        # Add health check logic here
+        # curl -f "${{ secrets.APP_URL }}/health" || exit 1
