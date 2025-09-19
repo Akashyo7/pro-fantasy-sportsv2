@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Football Prediction API",
     description="AI-powered football match predictions with confidence scoring",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
 )
 
 # Add CORS middleware
@@ -91,20 +93,39 @@ async def startup_event():
         logger.info("Models will need to be trained")
 
 # Health check endpoint
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "message": "Football Prediction API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "predict": "/predict/match",
+            "upcoming": "/predict/upcoming/{competition}",
+            "competitions": "/competitions"
+        }
+    }
+
 @app.get("/health")
 async def health_check():
     """Enhanced health check endpoint for production deployment."""
     try:
         # Check database connectivity
-        from src.data.database import SupabaseClient
-        db_client = SupabaseClient()
-        db_status = "connected"
+        from src.data.database import db_manager
+        db_status = db_manager.health_check() if db_manager.client else False
         
         # Check if we can query the database
         try:
-            # Simple query to test connection
-            result = db_client.client.table('matches').select('id').limit(1).execute()
-            db_status = "connected"
+            if db_manager.client:
+                # Simple query to test connection
+                result = db_manager.client.table('matches').select('id').limit(1).execute()
+                db_status = "connected"
+            else:
+                db_status = "disconnected"
         except Exception as e:
             logger.warning(f"Database connection issue: {e}")
             db_status = "disconnected"
