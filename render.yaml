@@ -27,10 +27,6 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-    disk:
-      name: model-storage
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
     autoDeploy: true
 
   - type: web
@@ -65,7 +61,6 @@ services:
   - type: cron
     name: weekly-model-training
     env: python
-    plan: free
     schedule: "0 2 * * 0"
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/train_models.py
@@ -84,10 +79,6 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-    disk:
-      name: model-storage
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
 
 databases:
   - name: predictions-cache
