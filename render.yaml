@@ -13,8 +13,6 @@ services:
         sync: false
       - key: API_HOST
         value: 0.0.0.0
-      - key: API_PORT
-        value: $PORT
       - key: MODEL_UPDATE_FREQUENCY
         value: weekly
       - key: CONFIDENCE_THRESHOLD
@@ -40,8 +38,6 @@ services:
         value: 3.9.18
       - key: API_HOST
         value: https://football-predictions-api.onrender.com
-      - key: API_PORT
-        value: "443"
       - key: STREAMLIT_SERVER_PORT
         value: $PORT
       - key: STREAMLIT_SERVER_HEADLESS
