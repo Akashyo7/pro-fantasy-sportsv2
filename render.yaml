@@ -1,3 +1,7 @@
+# Render Blueprint Configuration
+# Repository configuration
+repo: https://github.com/Akashyo7/pro-fantasy-sportsv2
+
 services:
   # FastAPI Backend Service
   - type: web
@@ -15,10 +19,7 @@ services:
       - key: API_HOST
         value: 0.0.0.0
       - key: API_PORT
-        fromService:
-          type: web
-          name: football-predictions-api
-          property: port
+        value: $PORT
       - key: MODEL_UPDATE_FREQUENCY
         value: weekly
       - key: CONFIDENCE_THRESHOLD
@@ -41,9 +42,6 @@ services:
     # Auto-deploy from main branch
     autoDeploy: true
     
-    # Health check configuration
-    healthCheckPath: /health
-    
   # Streamlit Frontend Service  
   - type: web
     name: football-predictions-dashboard
@@ -55,17 +53,11 @@ services:
       - key: PYTHON_VERSION
         value: 3.9.18
       - key: API_HOST
-        fromService:
-          type: web
-          name: football-predictions-api
-          property: host
+        value: https://football-predictions-api.onrender.com
       - key: API_PORT
-        value: "80"  # Render uses port 80 for web services
+        value: "443"  # HTTPS port for external service calls
       - key: STREAMLIT_SERVER_PORT
-        fromService:
-          type: web
-          name: football-predictions-dashboard
-          property: port
+        value: $PORT
       - key: STREAMLIT_SERVER_HEADLESS
         value: "true"
       - key: STREAMLIT_SERVER_ENABLE_CORS
