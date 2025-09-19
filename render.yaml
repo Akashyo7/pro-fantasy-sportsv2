@@ -1,5 +1,3 @@
-repo: https://github.com/Akashyo7/pro-fantasy-sportsv2
-
 services:
   - type: web
     name: football-predictions-api
@@ -64,10 +62,10 @@ services:
         sync: false
     autoDeploy: true
 
-jobs:
   - type: cron
     name: weekly-model-training
     env: python
+    plan: free
     schedule: "0 2 * * 0"
     buildCommand: pip install -r requirements.txt
     startCommand: python scripts/train_models.py
