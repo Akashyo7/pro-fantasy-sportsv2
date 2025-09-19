@@ -1,8 +1,6 @@
-# Render Blueprint Configuration
 repo: https://github.com/Akashyo7/pro-fantasy-sportsv2
 
 services:
-  # FastAPI Backend Service
   - type: web
     name: football-predictions-api
     env: python
@@ -31,15 +29,12 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-    
     disk:
       name: model-storage
       mountPath: /opt/render/project/src/data
       sizeGB: 1
-    
     autoDeploy: true
-    
-  # Streamlit Frontend Service  
+
   - type: web
     name: football-predictions-dashboard
     env: python
@@ -67,11 +62,9 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-    
     autoDeploy: true
 
 jobs:
-  # Weekly model training job
   - type: cron
     name: weekly-model-training
     env: python
@@ -93,7 +86,6 @@ jobs:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-    
     disk:
       name: model-storage
       mountPath: /opt/render/project/src/data
